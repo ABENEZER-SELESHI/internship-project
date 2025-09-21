@@ -56,14 +56,16 @@ export const useSavedItems = (maxItems = 50) => {
   useEffect(() => {
     globalSetters.push(setSavedItems);
     return () => {
-      globalSetters = globalSetters.filter(setter => setter !== setSavedItems);
+      globalSetters = globalSetters.filter(
+        (setter) => setter !== setSavedItems
+      );
     };
   }, []);
 
   useEffect(() => {
     const loadedItems = loadLocalDb().savedItems;
     setSavedItems(loadedItems);
-    
+
     // Update global state with loaded items
     globalSavedItems = loadedItems;
 
@@ -77,70 +79,74 @@ export const useSavedItems = (maxItems = 50) => {
     }
   }, []);
 
-  const saveItem = useCallback((item: SavedItem) => {
-    const updateAllInstances = (newList: SavedItemUI[]) => {
-      globalSavedItems = newList;
-      
-      // Clear any pending timeout to avoid conflicts
-      if (updateTimeout) {
-        clearTimeout(updateTimeout);
-      }
-      
-      // Defer state updates to avoid render phase conflicts
-      updateTimeout = setTimeout(() => {
-        globalSetters.forEach(setter => setter(newList));
-        updateTimeout = null;
-      }, 0);
-    };
+  const saveItem = useCallback(
+    (item: SavedItem) => {
+      const updateAllInstances = (newList: SavedItemUI[]) => {
+        globalSavedItems = newList;
 
-    // Use global state as the source of truth for the current list
-    const currentList = globalSavedItems.length > 0 ? globalSavedItems : savedItems;
-    
-    setSavedItems((prev) => {
-      // Use the most current state available
-      const baseList = globalSavedItems.length > 0 ? globalSavedItems : prev;
-      
-      const prevItem = baseList.find((i) => i.id === item.id);
-      const uiItem: SavedItemUI = {
-        ...item,
-        rating: item.productRating,
-        ratingCount: prevItem?.ratingCount || 0,
-        oldPrice: prevItem?.oldPrice,
-        seller: prevItem?.seller || "Unknown",
-        checked: prevItem?.checked || "N/A",
-        priceAlertOn: prevItem?.priceAlertOn ?? false,
-        placeholderText: "IMG",
+        // Clear any pending timeout to avoid conflicts
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+        }
+
+        // Defer state updates to avoid render phase conflicts
+        updateTimeout = setTimeout(() => {
+          globalSetters.forEach((setter) => setter(newList));
+          updateTimeout = null;
+        }, 0);
       };
 
-      let newList = [...baseList.filter((i) => i.id !== item.id), uiItem];
+      // Use global state as the source of truth for the current list
+      const currentList =
+        globalSavedItems.length > 0 ? globalSavedItems : savedItems;
 
-      if (newList.length > maxItems) {
-        newList = newList.slice(newList.length - maxItems);
-      }
+      setSavedItems((prev) => {
+        // Use the most current state available
+        const baseList = globalSavedItems.length > 0 ? globalSavedItems : prev;
 
-      localStorage.setItem(
-        LOCAL_DB_KEY,
-        JSON.stringify({ savedItems: newList })
-      );
-      
-      // Update all instances
-      updateAllInstances(newList);
-      return newList;
-    });
-  }, [maxItems, savedItems]);
+        const prevItem = baseList.find((i) => i.id === item.id);
+        const uiItem: SavedItemUI = {
+          ...item,
+          rating: item.productRating,
+          ratingCount: prevItem?.ratingCount || 0,
+          oldPrice: prevItem?.oldPrice,
+          seller: prevItem?.seller || "Unknown",
+          checked: prevItem?.checked || "N/A",
+          priceAlertOn: prevItem?.priceAlertOn ?? false,
+          placeholderText: "IMG",
+        };
+
+        let newList = [...baseList.filter((i) => i.id !== item.id), uiItem];
+
+        if (newList.length > maxItems) {
+          newList = newList.slice(newList.length - maxItems);
+        }
+
+        localStorage.setItem(
+          LOCAL_DB_KEY,
+          JSON.stringify({ savedItems: newList })
+        );
+
+        // Update all instances
+        updateAllInstances(newList);
+        return newList;
+      });
+    },
+    [maxItems, savedItems]
+  );
 
   const removeItem = useCallback((itemId: string) => {
     const updateAllInstances = (newList: SavedItemUI[]) => {
       globalSavedItems = newList;
-      
+
       // Clear any pending timeout to avoid conflicts
       if (updateTimeout) {
         clearTimeout(updateTimeout);
       }
-      
+
       // Defer state updates to avoid render phase conflicts
       updateTimeout = setTimeout(() => {
-        globalSetters.forEach(setter => setter(newList));
+        globalSetters.forEach((setter) => setter(newList));
         updateTimeout = null;
       }, 0);
     };
@@ -149,12 +155,12 @@ export const useSavedItems = (maxItems = 50) => {
       // Use the most current state available
       const baseList = globalSavedItems.length > 0 ? globalSavedItems : prev;
       const newList = baseList.filter((item) => item.id !== itemId);
-      
+
       localStorage.setItem(
         LOCAL_DB_KEY,
         JSON.stringify({ savedItems: newList })
       );
-      
+
       // Update all instances
       updateAllInstances(newList);
       return newList;
@@ -317,10 +323,11 @@ export const useSavedItems = (maxItems = 50) => {
     async (itemId: string) => {
       try {
         // Set loading state for this item
-        setLoadingPrices(prev => new Set(prev).add(itemId));
+        setLoadingPrices((prev) => new Set(prev).add(itemId));
 
         // find the product using global state as source of truth
-        const currentItems = globalSavedItems.length > 0 ? globalSavedItems : savedItems;
+        const currentItems =
+          globalSavedItems.length > 0 ? globalSavedItems : savedItems;
         const item = currentItems.find((i) => i.id === itemId);
         if (!item) {
           console.warn("Product not found in savedItems");
@@ -330,9 +337,9 @@ export const useSavedItems = (maxItems = 50) => {
         // call backend
         console.log("🚀 CALLING BACKEND API for productId:", item.id);
         console.log("📡 API URL: /api/v1/product/" + item.id + "/price");
-        
+
         const res = await updatePriceApi({ productId: item.id }).unwrap();
-        
+
         console.log("🌐 RAW API RESPONSE:", res);
         console.log("📊 Response data:", res?.data);
         console.log("💵 Backend ETB:", res?.data?.updated_price_etb);
@@ -342,38 +349,48 @@ export const useSavedItems = (maxItems = 50) => {
         if (res?.data) {
           const backendETB = res.data?.updated_price_etb ?? 0;
           const backendUSD = res.data?.updated_price_usd ?? 0;
-          
+
           console.log("🔍 Price calculation:");
           console.log("💰 Backend ETB:", backendETB);
           console.log("💰 Backend USD:", backendUSD);
           console.log("💰 Old ETB:", item.price.etb);
           console.log("💰 Old USD:", item.price.usd);
-          
+
           let finalETB = backendETB;
-          
+
           // If backend returns valid ETB, use it exactly
           if (backendETB > 0) {
             finalETB = backendETB;
             console.log("✅ Using backend ETB exactly:", finalETB);
-          } 
+          }
           // If backend only returns USD, calculate ETB using homepage rate
           else if (backendUSD > 0) {
             const oldETB = item.price.etb;
             const oldUSD = item.price.usd;
-            
+
             if (oldETB > 0 && oldUSD > 0) {
               // Use the same exchange rate as homepage
               const exchangeRate = oldETB / oldUSD;
               finalETB = backendUSD * exchangeRate;
-              console.log("🔄 Backend only has USD, calculating ETB using homepage rate:", exchangeRate, "→ Final ETB:", finalETB);
+              console.log(
+                "🔄 Backend only has USD, calculating ETB using homepage rate:",
+                exchangeRate,
+                "→ Final ETB:",
+                finalETB
+              );
             } else {
               // Fallback to default rate (matches backend)
               const USD_TO_ETB_RATE = 142.47;
               finalETB = backendUSD * USD_TO_ETB_RATE;
-              console.log("🔄 Using default exchange rate:", USD_TO_ETB_RATE, "→ Final ETB:", finalETB);
+              console.log(
+                "🔄 Using default exchange rate:",
+                USD_TO_ETB_RATE,
+                "→ Final ETB:",
+                finalETB
+              );
             }
           }
-          
+
           console.log("✅ Final prices:");
           console.log("💰 Final ETB:", finalETB);
           console.log("💰 Final USD:", backendUSD);
@@ -381,22 +398,23 @@ export const useSavedItems = (maxItems = 50) => {
           // ✅ only update etb and usd, keep fxTimestamp fresh
           const updateAllInstances = (newList: SavedItemUI[]) => {
             globalSavedItems = newList;
-            
+
             // Clear any pending timeout to avoid conflicts
             if (updateTimeout) {
               clearTimeout(updateTimeout);
             }
-            
+
             // Defer state updates to avoid render phase conflicts
             updateTimeout = setTimeout(() => {
-              globalSetters.forEach(setter => setter(newList));
+              globalSetters.forEach((setter) => setter(newList));
               updateTimeout = null;
             }, 0);
           };
 
           setSavedItems((prev) => {
             // Use the most current state available
-            const baseList = globalSavedItems.length > 0 ? globalSavedItems : prev;
+            const baseList =
+              globalSavedItems.length > 0 ? globalSavedItems : prev;
             const newList = baseList.map((i) =>
               i.id === itemId
                 ? {
@@ -418,7 +436,7 @@ export const useSavedItems = (maxItems = 50) => {
               LOCAL_DB_KEY,
               JSON.stringify({ savedItems: newList })
             );
-            
+
             // Update all instances
             updateAllInstances(newList);
             return newList;
@@ -434,24 +452,28 @@ export const useSavedItems = (maxItems = 50) => {
             usd: backendUSD,
           });
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("❌ Failed to refresh price:", err);
-        
-        // Handle empty error objects
-        if (!err || (typeof err === 'object' && Object.keys(err).length === 0)) {
-          console.error("❌ Empty error object - likely API timeout or network issue");
-          console.error("❌ Item ID:", itemId);
-          return; // Exit early for empty errors
+
+        if (err && typeof err === "object" && "status" in err) {
+          const e = err as { status?: number; data?: { status?: number } };
+          if (e.status === 404 || e.data?.status === 404) {
+            console.warn("⚠️ Product not found in backend (404):", itemId);
+            return;
+          }
         }
-        
-        console.error("❌ Error details:", {
-          message: err instanceof Error ? err.message : 'Unknown error',
-          stack: err instanceof Error ? err.stack : undefined,
-          itemId: itemId
-        });
+
+        if (err instanceof Error) {
+          console.error("❌ Error details:", {
+            message: err.message,
+            stack: err.stack,
+          });
+        } else {
+          console.error("❌ Unknown error:", err);
+        }
       } finally {
         // Remove loading state for this item
-        setLoadingPrices(prev => {
+        setLoadingPrices((prev) => {
           const newSet = new Set(prev);
           newSet.delete(itemId);
           return newSet;
@@ -467,9 +489,12 @@ export const useSavedItems = (maxItems = 50) => {
   }, []);
 
   // Helper function to check if price is loading for an item
-  const isPriceLoading = useCallback((itemId: string) => {
-    return loadingPrices.has(itemId);
-  }, [loadingPrices]);
+  const isPriceLoading = useCallback(
+    (itemId: string) => {
+      return loadingPrices.has(itemId);
+    },
+    [loadingPrices]
+  );
 
   useEffect(() => {
     console.log("📝 savedItems changed:", savedItems);
