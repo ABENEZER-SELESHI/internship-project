@@ -1,17 +1,18 @@
 // middleware.ts
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { withAuth, type NextRequestWithAuth } from "next-auth/middleware";
+import { NextResponse, type NextFetchEvent } from "next/server";
 
-export default withAuth(
-  function middleware(req) {
+const authMiddleware = withAuth(
+  function middleware(req: NextRequestWithAuth) {
     const res = NextResponse.next();
 
+    // ✅ Add deviceId cookie if missing
     const deviceId = req.cookies.get("deviceId")?.value;
     if (!deviceId) {
       const newId = crypto.randomUUID();
       res.cookies.set("deviceId", newId, {
         path: "/",
-        maxAge: 60 * 60 * 24 * 365,
+        maxAge: 60 * 60 * 24 * 365, // 1 year
       });
     }
 
@@ -19,13 +20,21 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token, // keep check
-    },
-    pages: {
-      signIn: "/signin", // 👈 redirect here instead of 404
+      authorized: ({ token }) => !!token, // only allow if logged in
     },
   }
 );
+
+export function middleware(req: NextRequestWithAuth, event: NextFetchEvent) {
+  const res = authMiddleware(req, event);
+
+  // 👇 Handle unauthorized case (App Router doesn’t use pages.signIn)
+  if (res instanceof NextResponse && res.status === 401) {
+    return NextResponse.redirect(new URL("/signin", req.url));
+  }
+
+  return res;
+}
 
 export const config = {
   matcher: [
